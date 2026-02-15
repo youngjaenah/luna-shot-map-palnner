@@ -155,15 +155,6 @@
 </head>
 <body>
 
-    <!-- Language Selection Modal -->
-    <div id="lang-modal" style="display:none;">
-        <div class="lang-card">
-            <h2>Select Language / 언어 선택</h2>
-            <button class="lang-btn-big" onclick="selectLanguage('ko')">🇰🇷 한국어</button>
-            <button class="lang-btn-big" onclick="selectLanguage('en')">🇺🇸 English</button>
-        </div>
-    </div>
-
     <div class="controls">
         <label>📅</label>
         <input type="date" id="dateInput">
@@ -177,6 +168,7 @@
         <a href="manual.html" target="_blank" style="text-decoration:none; margin-left:5px;">
             <button id="btn-manual" style="background:#666; color:white; border:none; border-radius:4px; padding:8px 12px; cursor:pointer; font-size:13px;">사용법</button>
         </a>
+        <button id="btn-lang" onclick="toggleLanguage()" style="background:none; border:1px solid #ccc; border-radius:4px; padding:8px; cursor:pointer; font-size:16px; margin-left:5px;" title="Language">🇰🇷</button>
         <input id="pac-input" type="text" placeholder="장소 검색 (예: N서울타워)">
         <button id="btn-draw" class="primary" onclick="calculateAndDraw()" style="width:100%; margin-top:8px;">🌑 월출/월몰 라인 그리기</button>
     </div>
@@ -243,10 +235,14 @@
 
         let currentLang = 'ko';
 
+        function toggleLanguage() {
+            const newLang = currentLang === 'ko' ? 'en' : 'ko';
+            selectLanguage(newLang);
+        }
+
         function selectLanguage(lang) {
             currentLang = lang;
             localStorage.setItem('lunashot_lang', lang);
-            document.getElementById('lang-modal').style.display = 'none';
             applyLanguage();
         }
 
@@ -260,6 +256,7 @@
             document.getElementById('pac-input').placeholder = t.searchPlaceholder;
             document.getElementById('btn-draw').innerText = t.drawBtn;
             document.getElementById('btn-reset').innerText = t.reset;
+            document.getElementById('btn-lang').innerText = currentLang === 'ko' ? '🇰🇷' : '🇺🇸';
             
             // If info is in initial state, update it
             if (!targetPosition) {
@@ -283,10 +280,9 @@
             const saved = localStorage.getItem('lunashot_lang');
             if (saved) {
                 currentLang = saved;
-                applyLanguage();
-            } else {
-                document.getElementById('lang-modal').style.display = 'flex';
             }
+            // Always apply language (default ko if not saved)
+            applyLanguage();
         });
 
 
