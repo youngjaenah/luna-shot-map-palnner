@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Moon Shot Map Planner 🌕</title>
+    <title>LunaShot 🌕</title>
     <style>
-        /* 모바일 뷰포트 높이 대응 (주소창 문제 해결) */
         html, body { height: 100%; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
-        
-        #map { width: 100%; height: 100vh; height: 100dvh; /* Dynamic Viewport Height */ }
+        #map { width: 100%; height: 100vh; height: 100dvh; }
 
         .controls {
             position: absolute;
@@ -25,7 +23,7 @@
             align-items: center;
             width: 90%;
             max-width: 800px;
-            flex-wrap: wrap; /* 모바일에서 줄바꿈 허용 */
+            flex-wrap: wrap;
             justify-content: center;
         }
 
@@ -36,7 +34,6 @@
             font-size: 14px;
         }
 
-        /* 검색창 위치 조정 */
         #pac-input {
             margin-top: 10px;
             width: 100%;
@@ -47,7 +44,6 @@
         button.primary { background: #4285F4; color: white; border: none; cursor: pointer; font-weight: bold; }
         button.primary:hover { background: #3367d6; }
 
-        /* 하단 정보창 스타일 개선 */
         #info {
             position: absolute;
             bottom: 20px;
@@ -63,15 +59,14 @@
             text-align: left;
             width: 90%;
             max-width: 500px;
-            max-height: 40vh; /* 화면의 40%까지만 차지 */
-            overflow-y: auto; /* 내용 넘치면 스크롤 */
+            max-height: 40vh;
+            overflow-y: auto;
             box-sizing: border-box;
         }
 
-        /* 초기화 버튼 위치 (정보창 위에 띄움) */
         .btn-reset {
             position: absolute;
-            bottom: auto; /* CSS로 재조정 */
+            bottom: auto;
             top: -50px; 
             right: 0;
             padding: 8px 12px;
@@ -85,62 +80,188 @@
             cursor: pointer;
         }
 
-        /* 모바일 전용 스타일 */
+        /* Language Modal */
+        #lang-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .lang-card {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .lang-card h2 { margin-top: 0; margin-bottom: 20px; }
+        .lang-btn-big {
+            display: block;
+            width: 200px;
+            padding: 15px;
+            margin: 10px auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .lang-btn-big:hover { background: #eef; border-color: #4285F4; }
+
         @media (max-width: 600px) {
-            .controls {
-                top: 5px;
-                padding: 8px;
-                gap: 5px;
-            }
-            .controls label { display: none; } /* 공간 확보를 위해 라벨 숨김 */
+            .controls { top: 5px; padding: 8px; gap: 5px; }
+            .controls label { display: none; }
             .controls input[type="date"] { width: 130px; }
             .controls input[type="number"] { width: 60px; }
             .controls select { width: 80px; }
-            .controls button { width: 100%; margin-top: 5px; } /* 버튼을 꽉 차게 */
-            
-            #info {
-                bottom: 10px;
-                font-size: 13px;
-            }
+            .controls button { width: 100%; margin-top: 5px; }
+            #info { bottom: 10px; font-size: 13px; }
         }
     </style>
-    <!-- SunCalc 라이브러리 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
 </head>
 <body>
 
+    <!-- Language Selection Modal -->
+    <div id="lang-modal" style="display:none;">
+        <div class="lang-card">
+            <h2>Select Language / 언어 선택</h2>
+            <button class="lang-btn-big" onclick="selectLanguage('ko')">🇰🇷 한국어</button>
+            <button class="lang-btn-big" onclick="selectLanguage('en')">🇺🇸 English</button>
+        </div>
+    </div>
+
     <div class="controls">
         <label>📅</label>
         <input type="date" id="dateInput">
-        <label>높이(m):</label>
+        <label id="lbl-height">높이(m):</label>
         <input type="number" id="targetObjectHeight" placeholder="0" value="0">
         <select id="mapTypeSelect" onchange="changeMapType()">
-            <option value="roadmap" selected>기본</option>
-            <option value="satellite">위성</option>
-            <option value="terrain">지형</option>
+            <option value="roadmap" id="opt-road" selected>기본</option>
+            <option value="satellite" id="opt-sat">위성</option>
+            <option value="terrain" id="opt-ter">지형</option>
         </select>
         <a href="manual.html" target="_blank" style="text-decoration:none; margin-left:5px;">
-            <button style="background:#666; color:white; border:none; border-radius:4px; padding:8px 12px; cursor:pointer; font-size:13px;" title="사용법">사용법</button>
+            <button id="btn-manual" style="background:#666; color:white; border:none; border-radius:4px; padding:8px 12px; cursor:pointer; font-size:13px;">사용법</button>
         </a>
         <input id="pac-input" type="text" placeholder="장소 검색 (예: N서울타워)">
-        <button class="primary" onclick="calculateAndDraw()" style="width:100%; margin-top:8px;">🌑 월출/월몰 라인 그리기</button>
+        <button id="btn-draw" class="primary" onclick="calculateAndDraw()" style="width:100%; margin-top:8px;">🌑 월출/월몰 라인 그리기</button>
     </div>
 
     <div id="map"></div>
     
     <div id="info">
-        <button onclick="resetTarget()" class="btn-reset">🔄 초기화</button>
-        <div id="info-content">📍 지도에서 촬영하고 싶은 <strong>대상(Target)</strong>을 클릭하세요.</div>
+        <button id="btn-reset" onclick="resetTarget()" class="btn-reset">🔄 초기화</button>
+        <div id="info-content"></div>
     </div>
 
-    <!-- Google Maps API -->
     <script>
-        // Google Maps API 로드
+        // --- i18n Logic ---
+        const translations = {
+            ko: {
+                height: "높이(m):",
+                mapRoad: "기본", mapSat: "위성", mapTer: "지형",
+                manual: "사용법",
+                searchPlaceholder: "장소 검색 (예: N서울타워)",
+                drawBtn: "🌑 월출/월몰 라인 그리기",
+                reset: "🔄 초기화",
+                infoInit: "📍 지도에서 촬영하고 싶은 <strong>대상(Target)</strong>을 클릭하세요.",
+                alertTargetFirst: "지도에서 촬영 대상을 먼저 클릭해주세요!",
+                targetSet: "🎯 타겟 설정 완료! (해발: {elev}m)<br>물체 높이 입력 후 <strong>[라인 그리기]</strong> 버튼을 누르세요.",
+                calculating: "⏳ 타임존 및 월출/월몰 계산 중...",
+                moonrise: "🔵 월출(Moonrise)", moonset: "🟠 월몰(Moonset)",
+                noMoonrise: "🔵 월출 없음", noMoonset: "🟠 월몰 없음",
+                shotPrompt: "📸 <strong>이제 지도에서 촬영 장소(Shooter)를 클릭하세요.</strong><br><span style='font-size:0.9em; color:#666;'>(자동으로 달이 타겟 위로 올라오는 시각을 계산하여 여기에 표시합니다)</span>",
+                calcShot: "⏳ 계산 중... (타임존 확인 포함)",
+                dist: "거리",
+                window: "Window",
+                duration: "분간",
+                alt: "고도각",
+                azi: "방위각",
+                correction: "곡률 보정",
+                legend: "👉 <strong>붉은 실선</strong>: 시작 / <strong>점선</strong>: 끝",
+                noShot: "⚠️ 해당 위치에서는 달이 타겟 각도 범위에 들어오지 않거나, 관통 시간을 계산할 수 없습니다."
+            },
+            en: {
+                height: "Height(m):",
+                mapRoad: "Roadmap", mapSat: "Satellite", mapTer: "Terrain",
+                manual: "Manual",
+                searchPlaceholder: "Search place (e.g., Statue of Liberty)",
+                drawBtn: "🌑 Draw Moon Lines",
+                reset: "🔄 Reset",
+                infoInit: "📍 Click a <strong>Target</strong> on the map to start.",
+                alertTargetFirst: "Please select a Target on the map first!",
+                targetSet: "🎯 Target Set! (Elev: {elev}m)<br>Enter object height and click <strong>[Draw Lines]</strong>.",
+                calculating: "⏳ Calculating timezone & moon times...",
+                moonrise: "🔵 Moonrise", moonset: "🟠 Moonset",
+                noMoonrise: "🔵 No Moonrise", noMoonset: "🟠 No Moonset",
+                shotPrompt: "📸 <strong>Now click a Shooting Spot (Shooter).</strong><br><span style='font-size:0.9em; color:#666;'>(We will calculate exactly when the moon aligns with the target)</span>",
+                calcShot: "⏳ Calculating... (checking timezone)",
+                dist: "Dist",
+                window: "Window",
+                duration: "min",
+                alt: "Alt",
+                azi: "Azimuth",
+                correction: "Curvature",
+                legend: "👉 <strong>Solid Red</strong>: Start / <strong>Dashed</strong>: End",
+                noShot: "⚠️ The moon does not align with the target from this location."
+            }
+        };
+
+        let currentLang = 'ko';
+
+        function selectLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('lunashot_lang', lang);
+            document.getElementById('lang-modal').style.display = 'none';
+            applyLanguage();
+        }
+
+        function applyLanguage() {
+            const t = translations[currentLang];
+            document.getElementById('lbl-height').innerText = t.height;
+            document.getElementById('opt-road').innerText = t.mapRoad;
+            document.getElementById('opt-sat').innerText = t.mapSat;
+            document.getElementById('opt-ter').innerText = t.mapTer;
+            document.getElementById('btn-manual').innerText = t.manual;
+            document.getElementById('pac-input').placeholder = t.searchPlaceholder;
+            document.getElementById('btn-draw').innerText = t.drawBtn;
+            document.getElementById('btn-reset').innerText = t.reset;
+            
+            // If info is in initial state, update it
+            if (!targetPosition) {
+                document.getElementById('info-content').innerHTML = t.infoInit;
+            }
+        }
+
+        function t(key, params = {}) {
+            let str = translations[currentLang][key] || key;
+            for (const [k, v] of Object.entries(params)) {
+                str = str.replace(`{${k}}`, v);
+            }
+            return str;
+        }
+
+        // Check language on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('lunashot_lang');
+            if (saved) {
+                currentLang = saved;
+                applyLanguage();
+            } else {
+                document.getElementById('lang-modal').style.display = 'flex';
+            }
+        });
+
+
+        // --- Google Maps & App Logic ---
         function loadScript() {
             var script = document.createElement('script');
-            // 설정된 API Key
             var apiKey = 'AIzaSyDAaCinSoUTMv-amRHtiIEY-Hxp6TzcAOU';
-            
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMap&libraries=places`;
             script.async = true;
             script.defer = true;
@@ -165,20 +286,45 @@
         document.getElementById('dateInput').valueAsDate = new Date();
 
         function initMap() {
-            const seoul = { lat: 37.5512, lng: 126.9882 };
+            const defaultCenter = { lat: 37.5512, lng: 126.9882 };
             
             map = new google.maps.Map(document.getElementById("map"), {
                 zoom: 13,
-                center: seoul,
+                center: defaultCenter,
                 mapTypeId: "roadmap",
                 streetViewControl: false,
                 mapTypeControl: false,
                 fullscreenControl: false
             });
             
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userPos = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        };
+                        map.setCenter(userPos);
+                        new google.maps.Marker({
+                            position: userPos,
+                            map: map,
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                scale: 7,
+                                fillColor: "#4285F4",
+                                fillOpacity: 1,
+                                strokeColor: "white",
+                                strokeWeight: 2,
+                            },
+                            title: "My Location"
+                        });
+                    },
+                    () => console.log("Geolocation failed")
+                );
+            }
+            
             elevator = new google.maps.ElevationService();
             
-            // 검색창 설정
             const input = document.getElementById("pac-input");
             const searchBox = new google.maps.places.SearchBox(input);
             
@@ -229,7 +375,7 @@
             isSelectingShooter = false;
             
             document.getElementById('targetObjectHeight').value = "0";
-            document.getElementById('info-content').innerHTML = `📍 지도에서 촬영하고 싶은 <strong>대상(Target)</strong>을 클릭하세요.`;
+            document.getElementById('info-content').innerHTML = t('infoInit');
         }
 
         function setTarget(latLng) {
@@ -238,7 +384,7 @@
             targetMarker = new google.maps.Marker({
                 position: latLng,
                 map: map,
-                title: "촬영 대상 (Target)",
+                title: "Target",
                 icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png' 
             });
             resetPaths();
@@ -256,7 +402,7 @@
             shooterMarker = new google.maps.Marker({
                 position: latLng,
                 map: map,
-                title: "촬영 장소 (Shooter)",
+                title: "Shooter",
                 icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
             });
             getElevation(latLng, 'shooter');
@@ -276,8 +422,7 @@
                     const elev = results[0].elevation.toFixed(1);
                     if (type === 'target') {
                         targetElevation = parseFloat(elev);
-                        document.getElementById('info-content').innerHTML = 
-                            `🎯 타겟 설정 완료! (해발: ${targetElevation}m)<br>물체 높이 입력 후 <strong>[월출/월몰 라인 그리기]</strong> 버튼을 누르세요.`;
+                        document.getElementById('info-content').innerHTML = t('targetSet', {elev: targetElevation});
                     } else if (type === 'shooter') {
                         shooterElevation = parseFloat(elev);
                         calculateShootingMoment();
@@ -291,7 +436,7 @@
 
         async function calculateAndDraw() {
             if (!targetPosition) {
-                alert("지도에서 촬영 대상을 먼저 클릭해주세요!");
+                alert(t('alertTargetFirst'));
                 return;
             }
             const dateStr = document.getElementById('dateInput').value;
@@ -302,11 +447,9 @@
 
             resetPaths();
 
-            // 타임존 가져오기
-            document.getElementById('info-content').innerHTML = "⏳ 타임존 및 월출/월몰 계산 중...";
+            document.getElementById('info-content').innerHTML = t('calculating');
             const timeZoneId = await getTimezoneId(lat, lng);
             
-            // 타임존 이름 (예: KST, PST 등)
             let tzName = timeZoneId;
             try {
                 tzName = new Date().toLocaleTimeString('en-us',{timeZone:timeZoneId, timeZoneName:'short'}).split(' ')[2] || timeZoneId;
@@ -314,14 +457,14 @@
 
             const moonIllum = SunCalc.getMoonIllumination(date);
             const phase = moonIllum.phase; 
-            const phaseName = getPhaseName(phase);
+            const phaseName = getPhaseName(phase); // Phase names are universal or can be translated if needed
             const moonAge = (phase * 29.53).toFixed(1); 
             const moonIcon = getMoonPhaseIcon(phase);
             const moonTimes = SunCalc.getMoonTimes(date, lat, lng);
             
             let elevInfo = targetElevation ? ` (Target Elev: ${targetElevation}m)` : "";
             let infoText = `<div style="margin-bottom:8px; font-size:1.1em;">
-                ${moonIcon} <strong>${phaseName}</strong> (월령: ${moonAge}일)${elevInfo} <span style="font-size:0.8em; color:#666; background:#eee; padding:2px 4px; border-radius:4px;">${tzName}</span>
+                ${moonIcon} <strong>${phaseName}</strong> (${moonAge}d)${elevInfo} <span style="font-size:0.8em; color:#666; background:#eee; padding:2px 4px; border-radius:4px;">${tzName}</span>
             </div>`;
             
             let bounds = new google.maps.LatLngBounds();
@@ -335,6 +478,9 @@
                 timeZone: timeZoneId,
                 month: 'numeric', day: 'numeric'
             };
+            
+            // Locale for dates
+            const locale = currentLang === 'ko' ? 'ko-KR' : 'en-US';
 
             if (moonTimes.rise) {
                 const risePos = SunCalc.getMoonPosition(moonTimes.rise, lat, lng);
@@ -342,13 +488,13 @@
                 const shooterRiseAzimuth = (riseAzimuth + 180) % 360; 
                 moonrisePath = drawShootingLine(targetPosition, shooterRiseAzimuth, "#1E90FF");
                 
-                const riseDateStr = moonTimes.rise.toLocaleDateString('ko-KR', dateOptions);
-                const riseTimeStr = moonTimes.rise.toLocaleTimeString('ko-KR', timeOptions);
+                const riseDateStr = moonTimes.rise.toLocaleDateString(locale, dateOptions);
+                const riseTimeStr = moonTimes.rise.toLocaleTimeString(locale, timeOptions);
                 
-                infoText += `<div id="rise-info">🔵 월출(Moonrise): <strong>${riseDateStr} ${riseTimeStr}</strong> (파란선)</div>`;
+                infoText += `<div id="rise-info">${t('moonrise')}: <strong>${riseDateStr} ${riseTimeStr}</strong></div>`;
                 bounds.extend(computeOffset(targetPosition, 5000, shooterRiseAzimuth));
             } else {
-                infoText += `<div id="rise-info">🔵 월출 없음</div>`;
+                infoText += `<div id="rise-info">${t('noMoonrise')}</div>`;
             }
 
             if (moonTimes.set) {
@@ -357,18 +503,17 @@
                 const shooterSetAzimuth = (setAzimuth + 180) % 360;
                 moonsetPath = drawShootingLine(targetPosition, shooterSetAzimuth, "#FF8C00");
                 
-                const setDateStr = moonTimes.set.toLocaleDateString('ko-KR', dateOptions);
-                const setTimeStr = moonTimes.set.toLocaleTimeString('ko-KR', timeOptions);
+                const setDateStr = moonTimes.set.toLocaleDateString(locale, dateOptions);
+                const setTimeStr = moonTimes.set.toLocaleTimeString(locale, timeOptions);
                 
-                infoText += `<div id="set-info">🟠 월몰(Moonset): <strong>${setDateStr} ${setTimeStr}</strong> (주황선)</div>`;
+                infoText += `<div id="set-info">${t('moonset')}: <strong>${setDateStr} ${setTimeStr}</strong></div>`;
                 bounds.extend(computeOffset(targetPosition, 5000, shooterSetAzimuth));
             } else {
-                infoText += `<div id="set-info">🟠 월몰 없음</div>`;
+                infoText += `<div id="set-info">${t('noMoonset')}</div>`;
             }
 
             infoText += `<div id="shot-result" style="margin-top:10px; padding-top:10px; border-top:1px solid #eee;">
-                📸 <strong>이제 지도에서 촬영 장소(Shooter)를 클릭하세요.</strong><br>
-                <span style="font-size:0.9em; color:#666;">(자동으로 달이 타겟 위로 올라오는 시각을 계산하여 여기에 표시합니다)</span>
+                ${t('shotPrompt')}
             </div>`;
 
             map.fitBounds(bounds);
@@ -376,67 +521,54 @@
             isSelectingShooter = true;
         }
 
-        // 타겟 위치의 타임존 ID 가져오기 (무료 API 사용)
         async function getTimezoneId(lat, lng) {
             try {
-                // TimeAPI.io 사용 (CORS 허용됨)
                 const response = await fetch(`https://timeapi.io/api/TimeZone/coordinate?latitude=${lat}&longitude=${lng}`);
                 if (!response.ok) throw new Error('Timezone fetch failed');
                 const data = await response.json();
-                return data.timeZone; // 예: "Asia/Seoul"
+                return data.timeZone;
             } catch (e) {
                 console.warn("Timezone fetch failed, using local time", e);
-                return Intl.DateTimeFormat().resolvedOptions().timeZone; // 실패 시 로컬 타임존 사용
+                return Intl.DateTimeFormat().resolvedOptions().timeZone;
             }
         }
 
-        // 촬영 장소가 선택되었을 때 실행되는 핵심 계산 함수
         async function calculateShootingMoment() {
             if (!targetPosition || !shooterPosition) return;
             
-            // 로딩 표시
-            document.getElementById('shot-result').innerHTML = `<div style="text-align:center; padding:10px; color:#666;">⏳ 계산 중... (타임존 확인 포함)</div>`;
+            document.getElementById('shot-result').innerHTML = `<div style="text-align:center; padding:10px; color:#666;">${t('calcShot')}</div>`;
 
-            // 1. 필요한 값 수집
             const tLat = targetPosition.lat();
             const tLng = targetPosition.lng();
             const sLat = shooterPosition.lat();
             const sLng = shooterPosition.lng();
             
-            // 타임존 가져오기 (비동기)
             const timeZoneId = await getTimezoneId(tLat, tLng);
             
-            // 거리 계산 (미터)
             const dist = google.maps.geometry.spherical.computeDistanceBetween(targetPosition, shooterPosition);
             
-            // 높이 정보 (사용자 입력 물체 높이)
             const objHeight = parseFloat(document.getElementById('targetObjectHeight').value) || 0;
 
-            // 2. 필요 고도각(Elevation Angle) 계산 (지구 곡률 & 대기 굴절 보정 적용)
             const R = 6371000;
-            const k = 0.13; // 표준 대기 굴절 계수
-            const correction = (1 - k) * (dist * dist) / (2 * R); // 미터 단위 보정값 (내려가는 양)
+            const k = 0.13;
+            const correction = (1 - k) * (dist * dist) / (2 * R);
 
-            // 각도 A: 타겟의 '바닥(지면)' (Base)
             const effectiveTargetElevBase = (targetElevation || 0) - correction;
             const altDiffBase = effectiveTargetElevBase - (shooterElevation || 0);
             let requiredAltAngleBase = (Math.atan2(altDiffBase, dist) * 180 / Math.PI);
             if (requiredAltAngleBase < -0.5) requiredAltAngleBase = -0.5;
 
-            // 각도 B: 타겟의 '꼭대기(물체 상단)' (Top)
             const effectiveTargetElevTop = ((targetElevation || 0) + objHeight) - correction;
             const altDiffTop = effectiveTargetElevTop - (shooterElevation || 0);
             let requiredAltAngleTop = (Math.atan2(altDiffTop, dist) * 180 / Math.PI);
             if (requiredAltAngleTop < -0.5) requiredAltAngleTop = -0.5;
 
-            // 3. 탐색 및 계산
             const dateStr = document.getElementById('dateInput').value;
             const baseDate = new Date(dateStr + "T12:00:00");
             const moonTimes = SunCalc.getMoonTimes(baseDate, sLat, sLng);
             
             let candidates = [];
 
-            // (A) 월출(Moonrise) 기준 탐색
             if (moonTimes.rise) {
                 let startTime = new Date(moonTimes.rise.getTime() - 30*60000);
                 let tBase = null;
@@ -471,7 +603,6 @@
                 }
             }
 
-            // (B) 월몰(Moonset) 기준 탐색
             if (moonTimes.set) {
                 let startTime = new Date(moonTimes.set.getTime() - 6*60*60000);
                 let tTop = null;
@@ -509,8 +640,8 @@
                 }
             }
 
-            // 결과 표시
             let shotResultHtml = "";
+            const locale = currentLang === 'ko' ? 'ko-KR' : 'en-US';
             
             if (candidates.length > 0) {
                 const shooterToTargetBearing = google.maps.geometry.spherical.computeHeading(shooterPosition, targetPosition);
@@ -528,7 +659,6 @@
                     }
                 });
 
-                // 타임존 포맷팅
                 const timeOptions = { 
                     timeZone: timeZoneId, 
                     hour: '2-digit', minute: '2-digit', hour12: false 
@@ -538,15 +668,14 @@
                     month: 'numeric', day: 'numeric'
                 };
                 
-                // 타임존 이름 구하기 (예: GMT+9, KST 등)
                 let tzName = timeZoneId;
                 try {
                     tzName = new Date().toLocaleTimeString('en-us',{timeZone:timeZoneId, timeZoneName:'short'}).split(' ')[2] || timeZoneId;
                 } catch(e) {}
 
-                const startDateStr = bestShot.start.toLocaleDateString('ko-KR', dateOptions);
-                const startTimeStr = bestShot.start.toLocaleTimeString('ko-KR', timeOptions);
-                const endTimeStr = bestShot.end.toLocaleTimeString('ko-KR', timeOptions);
+                const startDateStr = bestShot.start.toLocaleDateString(locale, dateOptions);
+                const startTimeStr = bestShot.start.toLocaleTimeString(locale, timeOptions);
+                const endTimeStr = bestShot.end.toLocaleTimeString(locale, timeOptions);
                 
                 const durationMin = Math.round((bestShot.end - bestShot.start) / 60000);
                 
@@ -562,16 +691,16 @@
                 shotResultHtml = `
                 <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:10px; margin-top:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
                     <div style="margin-bottom:5px;">
-                        📍 거리: <strong>${(dist/1000).toFixed(2)}km</strong><br>
-                        📸 <strong>${bestShot.type} Window:</strong> <span style="font-size:0.8em; background:#eee; padding:2px 4px; border-radius:4px;">${tzName}</span><br>
+                        📍 ${t('dist')}: <strong>${(dist/1000).toFixed(2)}km</strong><br>
+                        📸 <strong>${bestShot.type} ${t('window')}:</strong> <span style="font-size:0.8em; background:#eee; padding:2px 4px; border-radius:4px;">${tzName}</span><br>
                         <span style="font-size:1.2em; color:#d32f2f; font-weight:bold;">${startDateStr} ${startTimeStr} ~ ${endTimeStr}</span>
-                        <span style="font-size:0.9em; color:#555;">(${durationMin}분간)</span><br>
+                        <span style="font-size:0.9em; color:#555;">(${durationMin}${t('duration')})</span><br>
                         
                         <div style="margin-top:5px; font-size:0.9em; color:#0056b3;">
-                            📐 고도각: ${altBaseDMS} ~ ${altTopDMS}<br>
-                            🧭 방위각: ${aziDMS}
+                            📐 ${t('alt')}: ${altBaseDMS} ~ ${altTopDMS}<br>
+                            🧭 ${t('azi')}: ${aziDMS}
                         </div>
-                        <span style="font-size:0.8em; color:#888;">* 곡률 보정: -${correction.toFixed(1)}m</span>
+                        <span style="font-size:0.8em; color:#888;">* ${t('correction')}: -${correction.toFixed(1)}m</span>
                     </div>
                     <div style="text-align:right; font-size:0.8em; color:#666; line-height:1.4em; width:100%; border-top:1px solid #eee; margin-top:5px; padding-top:5px;">
                          Shooter: ${shooterElevation}m (${sLatStr}, ${sLngStr})<br>
@@ -579,13 +708,13 @@
                     </div>
                 </div>
                 <div style="margin-top:5px; font-size:0.9em; color:#666;">
-                    👉 <strong>붉은 실선</strong>: 시작 / <strong>점선</strong>: 끝
+                    ${t('legend')}
                 </div>
                 `;
                 
                 drawRedLine(shooterPosition, bestShot.azimuth, bestShot.azimuthEnd);
             } else {
-                shotResultHtml = `<div style="color:red; margin-top:10px;">⚠️ 해당 위치에서는 달이 타겟 각도 범위에 들어오지 않거나, 관통 시간을 계산할 수 없습니다.</div>`;
+                shotResultHtml = `<div style="color:red; margin-top:10px;">${t('noShot')}</div>`;
             }
 
             document.getElementById('shot-result').innerHTML = shotResultHtml;
@@ -593,15 +722,12 @@
 
         function drawRedLine(center, bearingStart, bearingEnd) {
              if (shootingLinePath) shootingLinePath.setMap(null);
-             // 기존 변수 재활용 또는 배열로 관리해야 함 -> 간단히 Polyline 두 개 생성
              if (window.redLines) {
                  window.redLines.forEach(line => line.setMap(null));
              }
              window.redLines = [];
 
              const distance = 50000;
-             
-             // 1. 실선 (시작 방위각)
              const endPoint1 = computeOffset(center, distance, bearingStart);
              const line1 = new google.maps.Polyline({
                 path: [center, endPoint1],
@@ -611,7 +737,6 @@
             });
             window.redLines.push(line1);
 
-            // 2. 점선 (끝 방위각)
             if (bearingEnd !== undefined) {
                 const endPoint2 = computeOffset(center, distance, bearingEnd);
                 const line2 = new google.maps.Polyline({
@@ -626,7 +751,6 @@
                 });
                 window.redLines.push(line2);
             }
-            
             shootingLinePath = line1; 
         }
 
@@ -690,14 +814,7 @@
         }
 
         function getPhaseName(phase) {
-            if (phase < 0.05 || phase > 0.95) return "New Moon (삭)";
-            if (phase < 0.2) return "Waxing Crescent (초승달)";
-            if (phase < 0.3) return "First Quarter (상현달)";
-            if (phase < 0.45) return "Waxing Gibbous";
-            if (phase < 0.55) return "Full Moon (보름달)";
-            if (phase < 0.7) return "Waning Gibbous";
-            if (phase < 0.8) return "Last Quarter (하현달)";
-            return "Waning Crescent (그믐달)";
+            return "Moon"; 
         }
         
         function toDMS(deg) {
