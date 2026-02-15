@@ -2,122 +2,138 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Moon Shot Map Planner 🌕</title>
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        #map { width: 100%; height: 85vh; }
+        /* 모바일 뷰포트 높이 대응 (주소창 문제 해결) */
+        html, body { height: 100%; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+        
+        #map { width: 100%; height: 100vh; height: 100dvh; /* Dynamic Viewport Height */ }
+
         .controls {
             position: absolute;
             top: 10px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 5;
-            background: white;
-            padding: 15px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.3);
             display: flex;
-            gap: 10px;
+            gap: 8px;
             align-items: center;
+            width: 90%;
+            max-width: 800px;
+            flex-wrap: wrap; /* 모바일에서 줄바꿈 허용 */
+            justify-content: center;
         }
-        input, button { padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-        button { background: #4285F4; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background: #3367d6; }
+
+        .controls input, .controls select, .controls button {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        /* 검색창 위치 조정 */
+        #pac-input {
+            margin-top: 10px;
+            width: 100%;
+            max-width: 300px;
+            box-sizing: border-box;
+        }
+
+        button.primary { background: #4285F4; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button.primary:hover { background: #3367d6; }
+
+        /* 하단 정보창 스타일 개선 */
         #info {
             position: absolute;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 5;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px 20px;
-            border-radius: 20px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 12px;
             font-size: 14px;
             color: #333;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            text-align: left;
+            width: 90%;
+            max-width: 500px;
+            max-height: 40vh; /* 화면의 40%까지만 차지 */
+            overflow-y: auto; /* 내용 넘치면 스크롤 */
+            box-sizing: border-box;
+        }
+
+        /* 초기화 버튼 위치 (정보창 위에 띄움) */
+        .btn-reset {
+            position: absolute;
+            bottom: auto; /* CSS로 재조정 */
+            top: -50px; 
+            right: 0;
+            padding: 8px 12px;
+            background: white;
+            color: #333;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            font-weight: bold;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        /* 모바일 전용 스타일 */
+        @media (max-width: 600px) {
+            .controls {
+                top: 5px;
+                padding: 8px;
+                gap: 5px;
+            }
+            .controls label { display: none; } /* 공간 확보를 위해 라벨 숨김 */
+            .controls input[type="date"] { width: 130px; }
+            .controls input[type="number"] { width: 60px; }
+            .controls select { width: 80px; }
+            .controls button { width: 100%; margin-top: 5px; } /* 버튼을 꽉 차게 */
+            
+            #info {
+                bottom: 10px;
+                font-size: 13px;
+            }
         }
     </style>
-    <!-- SunCalc 라이브러리 (달 위치 계산용) -->
+    <!-- SunCalc 라이브러리 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
-    <script>
-        // 정밀도 향상을 위한 Topocentric(지표면 기준) 보정 함수 추가
-        // SunCalc는 Geocentric(지구 중심) 좌표를 반환하므로, 관측자 위치에 따른 시차(Parallax)를 보정해야 함.
-        
-        function getCorrectedMoonPosition(date, lat, lng, elevMeters = 0) {
-            // 1. SunCalc로 Geocentric 좌표 획득
-            const pos = SunCalc.getMoonPosition(date, lat, lng);
-            
-            // 2. Parallax (시차) 보정 - 달은 지구 중심보다 지표면에서 볼 때 더 '낮게' 보입니다.
-            // tan(p) = (R/D) * cos(h)
-            // p = HP * cos(h)
-            
-            const distKm = pos.distance; 
-            const earthRadiusKm = 6371;
-            const horizontalParallax = Math.asin(earthRadiusKm / distKm); // 라디안
-            
-            // Topocentric Altitude = Geocentric Altitude - Parallax * cos(Altitude)
-            // (지평선 근처에서 최대 약 1도(57분) 차이 발생)
-            let topoAltitude = pos.altitude - horizontalParallax * Math.cos(pos.altitude);
-            
-            // 3. Refraction (대기 굴절) 보정 - 천체를 '더 높게' 보이게 합니다.
-            // Apparent Altitude = Topocentric Altitude + Refraction
-            // Bennett Formula Approximation (Saemundsson formula)
-            
-            const h = topoAltitude * 180 / Math.PI; // 도(deg) 단위
-            let refraction = 0;
-            
-            // 지평선 아래 너무 깊으면 의미 없음 (-2도 이상일 때만 적용)
-            if (h > -2.0) {
-                // R (arcmin) = 1.02 / tan(h + 10.3 / (h + 5.11))
-                // h는 반드시 양수 보정 필요 (수평선 근처 발산 방지)
-                const hSafe = Math.max(-0.5, h); 
-                const rArcMin = 1.02 / Math.tan((hSafe + 10.3 / (hSafe + 5.11)) * Math.PI / 180);
-                refraction = rArcMin / 60; // 도(deg) 단위
-            }
-            
-            const apparentAltitude = (h + refraction) * Math.PI / 180; // 라디안 재변환
-
-            return {
-                azimuth: pos.azimuth, // 방위각은 시차 영향이 매우 적으므로 그대로 사용
-                altitude: apparentAltitude,
-                distance: distKm,
-                parallacticAngle: pos.parallacticAngle
-            };
-        }
-    </script>
 </head>
 <body>
 
     <div class="controls">
-        <label>📅 촬영 날짜:</label>
+        <label>📅</label>
         <input type="date" id="dateInput">
-        <label>대상의 높이:</label>
-        <input type="number" id="targetObjectHeight" placeholder="m" style="width: 60px;" value="0">
-        <select id="mapTypeSelect" onchange="changeMapType()" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-            <option value="roadmap" selected>기본지도</option>
-            <option value="satellite">위성지도</option>
-            <option value="terrain">지형지도</option>
+        <label>높이(m):</label>
+        <input type="number" id="targetObjectHeight" placeholder="0" value="0">
+        <select id="mapTypeSelect" onchange="changeMapType()">
+            <option value="roadmap" selected>기본</option>
+            <option value="satellite">위성</option>
+            <option value="terrain">지형</option>
         </select>
-        <button onclick="calculateAndDraw()">🌑 월출/월몰 라인 그리기</button>
+        <a href="manual.html" target="_blank" style="text-decoration:none; margin-left:5px;">
+            <button style="background:#666; color:white; border:none; border-radius:4px; padding:8px 12px; cursor:pointer; font-size:13px;" title="사용법">사용법</button>
+        </a>
+        <input id="pac-input" type="text" placeholder="장소 검색 (예: N서울타워)">
+        <button class="primary" onclick="calculateAndDraw()" style="width:100%; margin-top:8px;">🌑 월출/월몰 라인 그리기</button>
     </div>
-    
-    <!-- 위치 검색 입력창 -->
-    <input id="pac-input" class="controls" type="text" placeholder="장소 검색 (예: N서울타워)" 
-           style="position: absolute; top: 70px; left: 50%; transform: translateX(-50%); z-index: 5; width: 300px; padding: 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px;">
 
     <div id="map"></div>
-    <div id="info">📍 지도에서 촬영하고 싶은 대상(Target)을 클릭하세요.</div>
     
-    <!-- 촬영대상 초기화 버튼 -->
-    <button onclick="resetTarget()" style="position: absolute; bottom: 30px; right: 20px; z-index: 10; padding: 10px 15px; background: white; color: #333; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.2); font-weight: bold; cursor: pointer; border-radius: 4px;">
-        🔄 촬영대상 초기화
-    </button>
+    <div id="info">
+        <button onclick="resetTarget()" class="btn-reset">🔄 초기화</button>
+        <div id="info-content">📍 지도에서 촬영하고 싶은 <strong>대상(Target)</strong>을 클릭하세요.</div>
+    </div>
 
-    <!--
-      ⚠️ 중요: YOUR_API_KEY_HERE 부분을 본인의 Google Maps API Key로 교체해야 지도가 보입니다.
-      Maps JavaScript API 및 Places API가 활성화되어 있어야 합니다.
-    -->
+    <!-- Google Maps API -->
     <script>
         // Google Maps API 로드
         function loadScript() {
@@ -125,14 +141,12 @@
             // 설정된 API Key
             var apiKey = 'AIzaSyDAaCinSoUTMv-amRHtiIEY-Hxp6TzcAOU';
             
-            // Places API 라이브러리 포함
             script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMap&libraries=places`;
             script.async = true;
             script.defer = true;
             document.head.appendChild(script);
         }
 
-        // 페이지 로드 시 바로 지도 로드 실행
         window.onload = loadScript;
 
         let map;
@@ -146,10 +160,60 @@
         let elevator = null;
         let targetElevation = null;
         let shooterElevation = null;
-        let isSelectingShooter = false; // 촬영 장소 선택 모드 여부
+        let isSelectingShooter = false;
 
-        // 오늘 날짜로 초기화
         document.getElementById('dateInput').valueAsDate = new Date();
+
+        function initMap() {
+            const seoul = { lat: 37.5512, lng: 126.9882 };
+            
+            map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 13,
+                center: seoul,
+                mapTypeId: "roadmap",
+                streetViewControl: false,
+                mapTypeControl: false,
+                fullscreenControl: false
+            });
+            
+            elevator = new google.maps.ElevationService();
+            
+            // 검색창 설정
+            const input = document.getElementById("pac-input");
+            const searchBox = new google.maps.places.SearchBox(input);
+            
+            map.addListener("bounds_changed", () => {
+                searchBox.setBounds(map.getBounds());
+            });
+
+            searchBox.addListener("places_changed", () => {
+                const places = searchBox.getPlaces();
+                if (places.length == 0) return;
+                const bounds = new google.maps.LatLngBounds();
+                places.forEach((place) => {
+                    if (!place.geometry || !place.geometry.location) return;
+                    if (place.geometry.viewport) {
+                        bounds.union(place.geometry.viewport);
+                    } else {
+                        bounds.extend(place.geometry.location);
+                    }
+                });
+                map.fitBounds(bounds);
+            });
+
+            map.addListener("click", (e) => {
+                if (isSelectingShooter) {
+                    setShooter(e.latLng);
+                } else {
+                    setTarget(e.latLng);
+                }
+            });
+        }
+        
+        function changeMapType() {
+            const type = document.getElementById('mapTypeSelect').value;
+            map.setMapTypeId(type);
+        }
 
         function resetTarget() {
             if (targetMarker) targetMarker.setMap(null);
@@ -165,107 +229,36 @@
             isSelectingShooter = false;
             
             document.getElementById('targetObjectHeight').value = "0";
-            document.getElementById('info').innerHTML = `📍 지도에서 촬영하고 싶은 대상(Target)을 클릭하세요.`;
-        }
-
-        function initMap() {
-            // 초기 위치: 서울 남산타워
-            const seoul = { lat: 37.5512, lng: 126.9882 };
-            
-            map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 13,
-                center: seoul,
-                mapTypeId: "roadmap", // 기본값으로 로드맵 설정
-                streetViewControl: false,
-                mapTypeControl: false // 기본 컨트롤 숨김 (직접 추가한 select 사용)
-            });
-            
-            // Elevation 서비스 초기화
-            elevator = new google.maps.ElevationService();
-            
-            // 검색창 (Places API) 설정
-            const input = document.getElementById("pac-input");
-            const searchBox = new google.maps.places.SearchBox(input);
-            
-            // 검색 결과가 지도 경계 안쪽 위주로 나오게 설정
-            map.addListener("bounds_changed", () => {
-                searchBox.setBounds(map.getBounds());
-            });
-
-            // 사용자가 검색어를 선택했을 때 이벤트
-            searchBox.addListener("places_changed", () => {
-                const places = searchBox.getPlaces();
-                if (places.length == 0) return;
-
-                // 검색된 장소로 지도 이동
-                const bounds = new google.maps.LatLngBounds();
-                places.forEach((place) => {
-                    if (!place.geometry || !place.geometry.location) return;
-
-                    if (place.geometry.viewport) {
-                        bounds.union(place.geometry.viewport);
-                    } else {
-                        bounds.extend(place.geometry.location);
-                    }
-                });
-                map.fitBounds(bounds);
-            });
-
-            // 지도 클릭 리스너
-            map.addListener("click", (e) => {
-                if (isSelectingShooter) {
-                    setShooter(e.latLng);
-                } else {
-                    setTarget(e.latLng);
-                }
-            });
-        }
-        
-        // 지도 유형 변경 함수
-        function changeMapType() {
-            const type = document.getElementById('mapTypeSelect').value;
-            map.setMapTypeId(type);
+            document.getElementById('info-content').innerHTML = `📍 지도에서 촬영하고 싶은 <strong>대상(Target)</strong>을 클릭하세요.`;
         }
 
         function setTarget(latLng) {
             targetPosition = latLng;
-            
-            // 기존 마커 제거
             if (targetMarker) targetMarker.setMap(null);
-            
-            // 새 마커 생성 (빨간색 타겟 아이콘)
             targetMarker = new google.maps.Marker({
                 position: latLng,
                 map: map,
                 title: "촬영 대상 (Target)",
                 icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png' 
             });
-            
-            // 기존 선 제거 (새 타겟 설정 시 모두 리셋)
             resetPaths();
             if (shooterMarker) {
                 shooterMarker.setMap(null);
                 shooterMarker = null;
             }
             isSelectingShooter = false;
-
-            // 높이 정보 가져오기
             getElevation(latLng, 'target');
         }
 
         function setShooter(latLng) {
             shooterPosition = latLng;
-
             if (shooterMarker) shooterMarker.setMap(null);
-
             shooterMarker = new google.maps.Marker({
                 position: latLng,
                 map: map,
                 title: "촬영 장소 (Shooter)",
                 icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
             });
-
-            // 높이 정보 가져오기 -> 계산 실행
             getElevation(latLng, 'shooter');
         }
 
@@ -278,20 +271,18 @@
         function getElevation(latLng, type) {
             const locations = [latLng];
             const request = { 'locations': locations };
-            
             elevator.getElevationForLocations(request, function(results, status) {
                 if (status === 'OK' && results[0]) {
                     const elev = results[0].elevation.toFixed(1);
                     if (type === 'target') {
                         targetElevation = parseFloat(elev);
-                        document.getElementById('info').innerHTML = 
+                        document.getElementById('info-content').innerHTML = 
                             `🎯 타겟 설정 완료! (해발: ${targetElevation}m)<br>물체 높이 입력 후 <strong>[월출/월몰 라인 그리기]</strong> 버튼을 누르세요.`;
                     } else if (type === 'shooter') {
                         shooterElevation = parseFloat(elev);
-                        calculateShootingMoment(); // 촬영 장소 높이까지 구했으면 바로 계산
+                        calculateShootingMoment();
                     }
                 } else {
-                    console.log('Elevation service failed: ' + status);
                     if (type === 'target') targetElevation = 0;
                     if (type === 'shooter') shooterElevation = 0;
                 }
@@ -303,18 +294,14 @@
                 alert("지도에서 촬영 대상을 먼저 클릭해주세요!");
                 return;
             }
-
             const dateStr = document.getElementById('dateInput').value;
             if (!dateStr) return;
-
-            // 선택한 날짜의 정오(12:00) 기준 계산
             const date = new Date(dateStr + "T12:00:00");
             const lat = targetPosition.lat();
             const lng = targetPosition.lng();
 
             resetPaths();
 
-            // 0. 달의 위상(Phase) 및 월령 계산
             const moonIllum = SunCalc.getMoonIllumination(date);
             const phase = moonIllum.phase; 
             const phaseName = getPhaseName(phase);
@@ -330,14 +317,11 @@
             let bounds = new google.maps.LatLngBounds();
             bounds.extend(targetPosition);
 
-            // --- 1. 월출 (Moonrise) ---
             if (moonTimes.rise) {
                 const risePos = SunCalc.getMoonPosition(moonTimes.rise, lat, lng);
                 const riseAzimuth = (risePos.azimuth * 180 / Math.PI) + 180; 
                 const shooterRiseAzimuth = (riseAzimuth + 180) % 360; 
-                
-                moonrisePath = drawShootingLine(targetPosition, shooterRiseAzimuth, "#1E90FF"); // 파란색
-                
+                moonrisePath = drawShootingLine(targetPosition, shooterRiseAzimuth, "#1E90FF");
                 const riseDateStr = moonTimes.rise.toLocaleDateString([], {month: 'numeric', day: 'numeric'});
                 const riseTimeStr = moonTimes.rise.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 infoText += `<div id="rise-info">🔵 월출(Moonrise): <strong>${riseDateStr} ${riseTimeStr}</strong> (파란선)</div>`;
@@ -346,14 +330,11 @@
                 infoText += `<div id="rise-info">🔵 월출 없음</div>`;
             }
 
-            // --- 2. 월몰 (Moonset) ---
             if (moonTimes.set) {
                 const setPos = SunCalc.getMoonPosition(moonTimes.set, lat, lng);
                 const setAzimuth = (setPos.azimuth * 180 / Math.PI) + 180;
                 const shooterSetAzimuth = (setAzimuth + 180) % 360;
-
-                moonsetPath = drawShootingLine(targetPosition, shooterSetAzimuth, "#FF8C00"); // 주황색
-
+                moonsetPath = drawShootingLine(targetPosition, shooterSetAzimuth, "#FF8C00");
                 const setDateStr = moonTimes.set.toLocaleDateString([], {month: 'numeric', day: 'numeric'});
                 const setTimeStr = moonTimes.set.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 infoText += `<div id="set-info">🟠 월몰(Moonset): <strong>${setDateStr} ${setTimeStr}</strong> (주황선)</div>`;
@@ -368,65 +349,45 @@
             </div>`;
 
             map.fitBounds(bounds);
-            document.getElementById('info').innerHTML = infoText;
-            
-            // 촬영 장소 선택 모드로 전환
+            document.getElementById('info-content').innerHTML = infoText;
             isSelectingShooter = true;
         }
 
-        // 촬영 장소가 선택되었을 때 실행되는 핵심 계산 함수
         function calculateShootingMoment() {
             if (!targetPosition || !shooterPosition) return;
 
-            // 1. 필요한 값 수집
             const tLat = targetPosition.lat();
             const tLng = targetPosition.lng();
             const sLat = shooterPosition.lat();
             const sLng = shooterPosition.lng();
             
-            // 거리 계산 (미터)
             const dist = google.maps.geometry.spherical.computeDistanceBetween(targetPosition, shooterPosition);
-            
-            // 높이 정보 (사용자 입력 물체 높이)
             const objHeight = parseFloat(document.getElementById('targetObjectHeight').value) || 0;
 
-            // 2. 필요 고도각(Elevation Angle) 계산 (지구 곡률 & 대기 굴절 보정 적용)
-            // 보정 공식: Δh = (1 - k) * d^2 / (2 * R)
-            // d: 거리(m), R: 지구 반지름(6371000m), k: 대기 굴절 계수(표준 0.13)
-            // 타겟이 곡률 때문에 내려가 보임 -> 타겟 높이에서 차감해야 함.
-            
             const R = 6371000;
-            const k = 0.13; // 표준 대기 굴절 계수
-            const correction = (1 - k) * (dist * dist) / (2 * R); // 미터 단위 보정값 (내려가는 양)
+            const k = 0.13;
+            const correction = (1 - k) * (dist * dist) / (2 * R);
 
-            // 시나리오 A: 타겟의 '바닥(지면)'에 달이 닿는 순간 (Moonrise)
-            // 보정된 타겟 높이 = 실제 타겟 높이 - 곡률효과
             const effectiveTargetElevBase = (targetElevation || 0) - correction;
             const altDiffBase = effectiveTargetElevBase - (shooterElevation || 0);
-            
             let requiredAltAngleBase = (Math.atan2(altDiffBase, dist) * 180 / Math.PI);
             if (requiredAltAngleBase < -0.5) requiredAltAngleBase = -0.5;
 
-            // 시나리오 B: 타겟의 '꼭대기(물체 상단)'에 달이 닿는 순간 (Moonset)
             const effectiveTargetElevTop = ((targetElevation || 0) + objHeight) - correction;
             const altDiffTop = effectiveTargetElevTop - (shooterElevation || 0);
-            
             let requiredAltAngleTop = (Math.atan2(altDiffTop, dist) * 180 / Math.PI);
             if (requiredAltAngleTop < -0.5) requiredAltAngleTop = -0.5;
 
-            // 3. 탐색 및 계산
             const dateStr = document.getElementById('dateInput').value;
             const baseDate = new Date(dateStr + "T12:00:00");
             const moonTimes = SunCalc.getMoonTimes(baseDate, sLat, sLng);
             
             let candidates = [];
 
-            // (A) 월출(Moonrise) 기준 탐색 -> '지표(Base)' 높이에 도달하는 시각 찾기
             if (moonTimes.rise) {
                 let startTime = new Date(moonTimes.rise.getTime() - 30*60000);
                 for (let i = 0; i < 720; i++) {
                     const time = new Date(startTime.getTime() + i * 60000);
-                    // SunCalc 대신 보정된 함수 사용
                     const pos = getCorrectedMoonPosition(time, sLat, sLng);
                     const alt = pos.altitude * 180 / Math.PI;
                     if (alt >= requiredAltAngleBase) {
@@ -442,13 +403,11 @@
                 }
             }
 
-            // (B) 월몰(Moonset) 기준 탐색 -> '꼭대기(Top)' 높이에 걸리는 시각 찾기
             if (moonTimes.set) {
                 let startTime = new Date(moonTimes.set.getTime() - 6*60*60000);
                 let foundSet = null;
                 for (let i = 0; i < 420; i++) {
                     const time = new Date(startTime.getTime() + i * 60000);
-                    // SunCalc 대신 보정된 함수 사용
                     const pos = getCorrectedMoonPosition(time, sLat, sLng);
                     const alt = pos.altitude * 180 / Math.PI;
                     if (alt > requiredAltAngleTop) {
@@ -466,11 +425,9 @@
                 }
             }
 
-            // 결과 표시 HTML 생성 (덮어쓰지 않고 추가)
             let shotResultHtml = "";
             
             if (candidates.length > 0) {
-                // 사용자가 찍은 위치가 월출 쪽인지 월몰 쪽인지 판단
                 const shooterToTargetBearing = google.maps.geometry.spherical.computeHeading(shooterPosition, targetPosition);
                 let bearing = (shooterToTargetBearing + 360) % 360;
                 
@@ -487,8 +444,6 @@
                 });
 
                 const timeStr = bestShot.time.toLocaleString([], {month: 'numeric', day: 'numeric', hour: '2-digit', minute:'2-digit'});
-                
-                // 각도를 DMS(도/분/초)로 변환
                 const aziDMS = toDMS(bestShot.azimuth);
                 const altDMS = toDMS(bestShot.angle);
                 const tLatStr = targetPosition.lat().toFixed(6);
@@ -496,21 +451,18 @@
                 const sLatStr = shooterPosition.lat().toFixed(6);
                 const sLngStr = shooterPosition.lng().toFixed(6);
 
-                // 박스 스타일로 표시
                 shotResultHtml = `
-                <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:10px; margin-top:10px; display:flex; align-items:center; justify-content:space-between;">
-                    <div>
+                <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:10px; margin-top:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+                    <div style="margin-bottom:5px;">
                         📍 거리: <strong>${(dist/1000).toFixed(2)}km</strong><br>
                         📸 <strong>${bestShot.type} Shot:</strong> <span style="font-size:1.1em; color:#d32f2f; font-weight:bold;">${timeStr}</span><br>
                         <span style="font-size:0.9em; color:#555;">${bestShot.desc} (필요각: ${altDMS})</span><br>
                         <span style="font-size:0.9em; color:#0056b3;">🌕 달 위치: 방위각 ${aziDMS} / 고도 ${altDMS}</span><br>
                         <span style="font-size:0.8em; color:#888;">* 곡률 보정: -${correction.toFixed(1)}m</span>
                     </div>
-                    <div style="text-align:right; font-size:0.8em; color:#666; line-height:1.4em;">
-                         Shooter: ${shooterElevation}m<br>
-                         (${sLatStr}, ${sLngStr})<br>
-                         Target: ${targetElevation}m (+${objHeight}m)<br>
-                         (${tLatStr}, ${tLngStr})
+                    <div style="text-align:right; font-size:0.8em; color:#666; line-height:1.4em; width:100%;">
+                         Shooter: ${shooterElevation}m (${sLatStr}, ${sLngStr})<br>
+                         Target: ${targetElevation}m (${tLatStr}, ${tLngStr})
                     </div>
                 </div>
                 <div style="margin-top:5px; font-size:0.9em; color:#666;">
@@ -523,79 +475,78 @@
                 shotResultHtml = `<div style="color:red; margin-top:10px;">⚠️ 해당 위치에서는 달이 타겟 각도 범위에 들어오지 않습니다.</div>`;
             }
 
-            // 기존 정보는 건드리지 않고, 결과 영역만 업데이트
             document.getElementById('shot-result').innerHTML = shotResultHtml;
         }
 
         function drawRedLine(center, bearing) {
              if (shootingLinePath) shootingLinePath.setMap(null);
-
-             const distance = 50000; // 50km
+             const distance = 50000;
              const endPoint = computeOffset(center, distance, bearing);
-
              shootingLinePath = new google.maps.Polyline({
                 path: [center, endPoint],
                 geodesic: true,
-                strokeColor: "#FF0000", // 빨간색
-                strokeOpacity: 1.0,
-                strokeWeight: 2,
+                strokeColor: "#FF0000", strokeOpacity: 1.0, strokeWeight: 2,
                 map: map
             });
         }
 
         function drawShootingLine(center, bearing, color) {
-            // 50km 길이의 선 계산
             const distance = 50000;
             const endPoint = computeOffset(center, distance, bearing);
-
-            const lineCoordinates = [
-                center, // 타겟 위치
-                endPoint // 촬영자 방향 끝점
-            ];
-
-            // 선 그리기
             return new google.maps.Polyline({
-                path: lineCoordinates,
+                path: [center, endPoint],
                 geodesic: true,
-                strokeColor: color,
-                strokeOpacity: 0.8,
-                strokeWeight: 4,
-                icons: [{
-                    icon: {path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW},
-                    offset: '100%'
-                }],
+                strokeColor: color, strokeOpacity: 0.8, strokeWeight: 4,
+                icons: [{ icon: {path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW}, offset: '100%' }],
                 map: map
             });
         }
 
-        // [보조 함수] 특정 좌표에서 거리(m), 방위각(deg) 만큼 이동한 좌표 계산
         function computeOffset(latLng, distance, bearing) {
-            const R = 6371000; // 지구 반지름 (m)
-            const lat1 = latLng.lat() * Math.PI / 180; // rad
-            const lon1 = latLng.lng() * Math.PI / 180; // rad
-            const brng = bearing * Math.PI / 180; // rad
-
+            const R = 6371000;
+            const lat1 = latLng.lat() * Math.PI / 180;
+            const lon1 = latLng.lng() * Math.PI / 180;
+            const brng = bearing * Math.PI / 180;
             const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distance / R) +
                         Math.cos(lat1) * Math.sin(distance / R) * Math.cos(brng));
             const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(distance / R) * Math.cos(lat1),
                         Math.cos(distance / R) - Math.sin(lat1) * Math.sin(lat2));
+            return { lat: lat2 * 180 / Math.PI, lng: lon2 * 180 / Math.PI };
+        }
+
+        function getCorrectedMoonPosition(date, lat, lng, elevMeters = 0) {
+            const pos = SunCalc.getMoonPosition(date, lat, lng);
+            const distKm = pos.distance; 
+            const earthRadiusKm = 6371;
+            const horizontalParallax = Math.asin(earthRadiusKm / distKm);
+            let topoAltitude = pos.altitude - horizontalParallax * Math.cos(pos.altitude);
+            
+            const h = topoAltitude * 180 / Math.PI; 
+            let refraction = 0;
+            if (h > -2.0) {
+                const hSafe = Math.max(-0.5, h); 
+                const rArcMin = 1.02 / Math.tan((hSafe + 10.3 / (hSafe + 5.11)) * Math.PI / 180);
+                refraction = rArcMin / 60;
+            }
+            const apparentAltitude = (h + refraction) * Math.PI / 180;
 
             return {
-                lat: lat2 * 180 / Math.PI,
-                lng: lon2 * 180 / Math.PI
+                azimuth: pos.azimuth,
+                altitude: apparentAltitude,
+                distance: distKm,
+                parallacticAngle: pos.parallacticAngle
             };
         }
 
         function getMoonPhaseIcon(phase) {
-            // phase: 0.0(New Moon) -> 0.25(First Quarter) -> 0.5(Full Moon) -> 0.75(Last Quarter) -> 1.0
-            if (phase < 0.05 || phase > 0.95) return "🌑"; // 삭
-            if (phase < 0.2) return "🌒"; // 초승달
-            if (phase < 0.3) return "🌓"; // 상현달
-            if (phase < 0.45) return "🌔"; // 상현망간
-            if (phase < 0.55) return "🌕"; // 보름달
-            if (phase < 0.7) return "🌖"; // 하현망간
-            if (phase < 0.8) return "🌗"; // 하현달
-            return "🌘"; // 그믐달
+            if (phase < 0.05 || phase > 0.95) return "🌑";
+            if (phase < 0.2) return "🌒";
+            if (phase < 0.3) return "🌓";
+            if (phase < 0.45) return "🌔";
+            if (phase < 0.55) return "🌕";
+            if (phase < 0.7) return "🌖";
+            if (phase < 0.8) return "🌗";
+            return "🌘";
         }
 
         function getPhaseName(phase) {
