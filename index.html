@@ -384,28 +384,33 @@
             
             let candidates = [];
 
+            // (A) 월출(Moonrise) 기준 탐색
             if (moonTimes.rise) {
                 let startTime = new Date(moonTimes.rise.getTime() - 30*60000);
                 let tBase = null;
                 let tTop = null;
                 let aziBase = 0;
+                let aziTop = 0;
 
                 for (let i = 0; i < 720; i++) {
                     const time = new Date(startTime.getTime() + i * 60000);
                     const pos = getCorrectedMoonPosition(time, sLat, sLng);
                     const alt = pos.altitude * 180 / Math.PI;
+                    const azi = (pos.azimuth * 180 / Math.PI) + 180;
                     
                     if (!tBase && alt >= requiredAltAngleBase) {
                         tBase = time;
-                        aziBase = (pos.azimuth * 180 / Math.PI) + 180;
+                        aziBase = azi;
                     }
                     if (tBase && !tTop && alt >= requiredAltAngleTop) {
                         tTop = time;
+                        aziTop = azi;
                         candidates.push({
                             type: 'Moonrise',
                             start: tBase,
                             end: tTop,
-                            azimuth: aziBase,
+                            azimuth: aziBase,     // 시작 방위각
+                            azimuthEnd: aziTop,   // 끝 방위각
                             angleBase: requiredAltAngleBase,
                             angleTop: requiredAltAngleTop
                         });
@@ -414,31 +419,36 @@
                 }
             }
 
+            // (B) 월몰(Moonset) 기준 탐색
             if (moonTimes.set) {
                 let startTime = new Date(moonTimes.set.getTime() - 6*60*60000);
                 let tTop = null;
                 let tBase = null;
                 let aziTop = 0;
+                let aziBase = 0;
                 let foundHigh = false; 
 
                 for (let i = 0; i < 420; i++) {
                     const time = new Date(startTime.getTime() + i * 60000);
                     const pos = getCorrectedMoonPosition(time, sLat, sLng);
                     const alt = pos.altitude * 180 / Math.PI;
+                    const azi = (pos.azimuth * 180 / Math.PI) + 180;
 
                     if (alt > requiredAltAngleTop) foundHigh = true;
 
                     if (foundHigh && !tTop && alt <= requiredAltAngleTop) {
                         tTop = time;
-                        aziTop = (pos.azimuth * 180 / Math.PI) + 180;
+                        aziTop = azi;
                     }
                     if (tTop && !tBase && alt <= requiredAltAngleBase) {
                         tBase = time;
+                        aziBase = azi;
                         candidates.push({
                             type: 'Moonset',
                             start: tTop,
                             end: tBase,
-                            azimuth: aziTop,
+                            azimuth: aziTop,      // 시작 방위각 (실선)
+                            azimuthEnd: aziBase,  // 끝 방위각 (점선)
                             angleBase: requiredAltAngleBase,
                             angleTop: requiredAltAngleTop
                         });
@@ -498,11 +508,11 @@
                     </div>
                 </div>
                 <div style="margin-top:5px; font-size:0.9em; color:#666;">
-                    👉 <strong>붉은 선</strong>은 관통 시작 시점의 방향입니다.
+                    👉 <strong>붉은 실선</strong>: 관통 시작 / <strong>붉은 점선</strong>: 관통 끝
                 </div>
                 `;
                 
-                drawRedLine(shooterPosition, bestShot.azimuth);
+                drawRedLine(shooterPosition, bestShot.azimuth, bestShot.azimuthEnd);
             } else {
                 shotResultHtml = `<div style="color:red; margin-top:10px;">⚠️ 해당 위치에서는 달이 타겟 각도 범위에 들어오지 않거나, 관통 시간을 계산할 수 없습니다.</div>`;
             }
@@ -510,16 +520,50 @@
             document.getElementById('shot-result').innerHTML = shotResultHtml;
         }
 
-        function drawRedLine(center, bearing) {
+        function drawRedLine(center, bearingStart, bearingEnd) {
              if (shootingLinePath) shootingLinePath.setMap(null);
+             // 기존 변수 재활용 또는 배열로 관리해야 함 -> 간단히 Polyline 두 개 생성
+             // 여기서는 shootingLinePath를 배열로 관리하도록 전역 변수 수정 필요
+             // 하지만 간단하게 처리하기 위해 전역 변수를 배열로 바꾸지 않고, 
+             // shootingLinePath 속성에 두 개의 Polyline을 담는 객체로 변경하거나, 
+             // 기존 코드를 유지하되 '점선'을 추가로 그리는 방식으로 변경.
+             
+             // 전역 변수 초기화 (기존 선 제거)
+             if (window.redLines) {
+                 window.redLines.forEach(line => line.setMap(null));
+             }
+             window.redLines = [];
+
              const distance = 50000;
-             const endPoint = computeOffset(center, distance, bearing);
-             shootingLinePath = new google.maps.Polyline({
-                path: [center, endPoint],
+             
+             // 1. 실선 (시작 방위각)
+             const endPoint1 = computeOffset(center, distance, bearingStart);
+             const line1 = new google.maps.Polyline({
+                path: [center, endPoint1],
                 geodesic: true,
                 strokeColor: "#FF0000", strokeOpacity: 1.0, strokeWeight: 2,
                 map: map
             });
+            window.redLines.push(line1);
+
+            // 2. 점선 (끝 방위각) - bearingEnd가 유효할 때만
+            if (bearingEnd !== undefined) {
+                const endPoint2 = computeOffset(center, distance, bearingEnd);
+                const line2 = new google.maps.Polyline({
+                    path: [center, endPoint2],
+                    geodesic: true,
+                    strokeColor: "#FF0000", strokeOpacity: 0, strokeWeight: 0, // 투명선 (아이콘으로 점선 표현)
+                    icons: [{
+                        icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 2, strokeColor: '#FF0000' },
+                        offset: '0', repeat: '10px'
+                    }],
+                    map: map
+                });
+                window.redLines.push(line2);
+            }
+            
+            // 기존 shootingLinePath 호환성 유지를 위해 (resetPaths 함수 등에서 에러 안 나게)
+            shootingLinePath = line1; 
         }
 
         function drawShootingLine(center, bearing, color) {
