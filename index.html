@@ -386,17 +386,28 @@
 
             if (moonTimes.rise) {
                 let startTime = new Date(moonTimes.rise.getTime() - 30*60000);
+                let tBase = null;
+                let tTop = null;
+                let aziBase = 0;
+
                 for (let i = 0; i < 720; i++) {
                     const time = new Date(startTime.getTime() + i * 60000);
                     const pos = getCorrectedMoonPosition(time, sLat, sLng);
                     const alt = pos.altitude * 180 / Math.PI;
-                    if (alt >= requiredAltAngleBase) {
+                    
+                    if (!tBase && alt >= requiredAltAngleBase) {
+                        tBase = time;
+                        aziBase = (pos.azimuth * 180 / Math.PI) + 180;
+                    }
+                    if (tBase && !tTop && alt >= requiredAltAngleTop) {
+                        tTop = time;
                         candidates.push({
-                            time: time,
-                            azimuth: (pos.azimuth * 180 / Math.PI) + 180,
                             type: 'Moonrise',
-                            desc: '지면(Base) 도달',
-                            angle: requiredAltAngleBase
+                            start: tBase,
+                            end: tTop,
+                            azimuth: aziBase,
+                            angleBase: requiredAltAngleBase,
+                            angleTop: requiredAltAngleTop
                         });
                         break;
                     }
@@ -405,20 +416,31 @@
 
             if (moonTimes.set) {
                 let startTime = new Date(moonTimes.set.getTime() - 6*60*60000);
-                let foundSet = null;
+                let tTop = null;
+                let tBase = null;
+                let aziTop = 0;
+                let foundHigh = false; 
+
                 for (let i = 0; i < 420; i++) {
                     const time = new Date(startTime.getTime() + i * 60000);
                     const pos = getCorrectedMoonPosition(time, sLat, sLng);
                     const alt = pos.altitude * 180 / Math.PI;
-                    if (alt > requiredAltAngleTop) {
-                        foundSet = { time: time, azimuth: (pos.azimuth * 180 / Math.PI) + 180 };
-                    } else if (alt <= requiredAltAngleTop && foundSet) {
+
+                    if (alt > requiredAltAngleTop) foundHigh = true;
+
+                    if (foundHigh && !tTop && alt <= requiredAltAngleTop) {
+                        tTop = time;
+                        aziTop = (pos.azimuth * 180 / Math.PI) + 180;
+                    }
+                    if (tTop && !tBase && alt <= requiredAltAngleBase) {
+                        tBase = time;
                         candidates.push({
-                            time: foundSet.time,
-                            azimuth: foundSet.azimuth,
                             type: 'Moonset',
-                            desc: '꼭대기(Top) 걸림',
-                            angle: requiredAltAngleTop
+                            start: tTop,
+                            end: tBase,
+                            azimuth: aziTop,
+                            angleBase: requiredAltAngleBase,
+                            angleTop: requiredAltAngleTop
                         });
                         break;
                     }
@@ -443,9 +465,14 @@
                     }
                 });
 
-                const timeStr = bestShot.time.toLocaleString([], {month: 'numeric', day: 'numeric', hour: '2-digit', minute:'2-digit'});
+                const startStr = bestShot.start.toLocaleString([], {month: 'numeric', day: 'numeric', hour: '2-digit', minute:'2-digit'});
+                const endStr = bestShot.end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const durationMin = Math.round((bestShot.end - bestShot.start) / 60000);
+                
                 const aziDMS = toDMS(bestShot.azimuth);
-                const altDMS = toDMS(bestShot.angle);
+                const altBaseDMS = toDMS(bestShot.angleBase);
+                const altTopDMS = toDMS(bestShot.angleTop);
+                
                 const tLatStr = targetPosition.lat().toFixed(6);
                 const tLngStr = targetPosition.lng().toFixed(6);
                 const sLatStr = shooterPosition.lat().toFixed(6);
@@ -455,24 +482,29 @@
                 <div style="background:#f9f9f9; border:1px solid #ddd; border-radius:8px; padding:10px; margin-top:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
                     <div style="margin-bottom:5px;">
                         📍 거리: <strong>${(dist/1000).toFixed(2)}km</strong><br>
-                        📸 <strong>${bestShot.type} Shot:</strong> <span style="font-size:1.1em; color:#d32f2f; font-weight:bold;">${timeStr}</span><br>
-                        <span style="font-size:0.9em; color:#555;">${bestShot.desc} (필요각: ${altDMS})</span><br>
-                        <span style="font-size:0.9em; color:#0056b3;">🌕 달 위치: 방위각 ${aziDMS} / 고도 ${altDMS}</span><br>
+                        📸 <strong>${bestShot.type} Window:</strong><br>
+                        <span style="font-size:1.2em; color:#d32f2f; font-weight:bold;">${startStr} ~ ${endStr}</span>
+                        <span style="font-size:0.9em; color:#555;">(${durationMin}분간 관통)</span><br>
+                        
+                        <div style="margin-top:5px; font-size:0.9em; color:#0056b3;">
+                            📐 고도각: ${altBaseDMS} (지면) ~ ${altTopDMS} (상단)<br>
+                            🧭 방위각: ${aziDMS}
+                        </div>
                         <span style="font-size:0.8em; color:#888;">* 곡률 보정: -${correction.toFixed(1)}m</span>
                     </div>
-                    <div style="text-align:right; font-size:0.8em; color:#666; line-height:1.4em; width:100%;">
+                    <div style="text-align:right; font-size:0.8em; color:#666; line-height:1.4em; width:100%; border-top:1px solid #eee; margin-top:5px; padding-top:5px;">
                          Shooter: ${shooterElevation}m (${sLatStr}, ${sLngStr})<br>
                          Target: ${targetElevation}m (${tLatStr}, ${tLngStr})
                     </div>
                 </div>
                 <div style="margin-top:5px; font-size:0.9em; color:#666;">
-                    👉 지도에 표시된 <strong>붉은 선</strong>이 달의 방향입니다.
+                    👉 <strong>붉은 선</strong>은 관통 시작 시점의 방향입니다.
                 </div>
                 `;
                 
                 drawRedLine(shooterPosition, bestShot.azimuth);
             } else {
-                shotResultHtml = `<div style="color:red; margin-top:10px;">⚠️ 해당 위치에서는 달이 타겟 각도 범위에 들어오지 않습니다.</div>`;
+                shotResultHtml = `<div style="color:red; margin-top:10px;">⚠️ 해당 위치에서는 달이 타겟 각도 범위에 들어오지 않거나, 관통 시간을 계산할 수 없습니다.</div>`;
             }
 
             document.getElementById('shot-result').innerHTML = shotResultHtml;
