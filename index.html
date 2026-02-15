@@ -289,7 +289,7 @@
             });
         }
 
-        function calculateAndDraw() {
+        async function calculateAndDraw() {
             if (!targetPosition) {
                 alert("지도에서 촬영 대상을 먼저 클릭해주세요!");
                 return;
@@ -302,6 +302,16 @@
 
             resetPaths();
 
+            // 타임존 가져오기
+            document.getElementById('info-content').innerHTML = "⏳ 타임존 및 월출/월몰 계산 중...";
+            const timeZoneId = await getTimezoneId(lat, lng);
+            
+            // 타임존 이름 (예: KST, PST 등)
+            let tzName = timeZoneId;
+            try {
+                tzName = new Date().toLocaleTimeString('en-us',{timeZone:timeZoneId, timeZoneName:'short'}).split(' ')[2] || timeZoneId;
+            } catch(e) {}
+
             const moonIllum = SunCalc.getMoonIllumination(date);
             const phase = moonIllum.phase; 
             const phaseName = getPhaseName(phase);
@@ -311,19 +321,30 @@
             
             let elevInfo = targetElevation ? ` (Target Elev: ${targetElevation}m)` : "";
             let infoText = `<div style="margin-bottom:8px; font-size:1.1em;">
-                ${moonIcon} <strong>${phaseName}</strong> (월령: ${moonAge}일)${elevInfo}
+                ${moonIcon} <strong>${phaseName}</strong> (월령: ${moonAge}일)${elevInfo} <span style="font-size:0.8em; color:#666; background:#eee; padding:2px 4px; border-radius:4px;">${tzName}</span>
             </div>`;
             
             let bounds = new google.maps.LatLngBounds();
             bounds.extend(targetPosition);
+            
+            const timeOptions = { 
+                timeZone: timeZoneId, 
+                hour: '2-digit', minute: '2-digit', hour12: false 
+            };
+            const dateOptions = {
+                timeZone: timeZoneId,
+                month: 'numeric', day: 'numeric'
+            };
 
             if (moonTimes.rise) {
                 const risePos = SunCalc.getMoonPosition(moonTimes.rise, lat, lng);
                 const riseAzimuth = (risePos.azimuth * 180 / Math.PI) + 180; 
                 const shooterRiseAzimuth = (riseAzimuth + 180) % 360; 
                 moonrisePath = drawShootingLine(targetPosition, shooterRiseAzimuth, "#1E90FF");
-                const riseDateStr = moonTimes.rise.toLocaleDateString([], {month: 'numeric', day: 'numeric'});
-                const riseTimeStr = moonTimes.rise.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                const riseDateStr = moonTimes.rise.toLocaleDateString('ko-KR', dateOptions);
+                const riseTimeStr = moonTimes.rise.toLocaleTimeString('ko-KR', timeOptions);
+                
                 infoText += `<div id="rise-info">🔵 월출(Moonrise): <strong>${riseDateStr} ${riseTimeStr}</strong> (파란선)</div>`;
                 bounds.extend(computeOffset(targetPosition, 5000, shooterRiseAzimuth));
             } else {
@@ -335,8 +356,10 @@
                 const setAzimuth = (setPos.azimuth * 180 / Math.PI) + 180;
                 const shooterSetAzimuth = (setAzimuth + 180) % 360;
                 moonsetPath = drawShootingLine(targetPosition, shooterSetAzimuth, "#FF8C00");
-                const setDateStr = moonTimes.set.toLocaleDateString([], {month: 'numeric', day: 'numeric'});
-                const setTimeStr = moonTimes.set.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                const setDateStr = moonTimes.set.toLocaleDateString('ko-KR', dateOptions);
+                const setTimeStr = moonTimes.set.toLocaleTimeString('ko-KR', timeOptions);
+                
                 infoText += `<div id="set-info">🟠 월몰(Moonset): <strong>${setDateStr} ${setTimeStr}</strong> (주황선)</div>`;
                 bounds.extend(computeOffset(targetPosition, 5000, shooterSetAzimuth));
             } else {
