@@ -168,9 +168,9 @@
         <a href="manual.html" target="_blank" style="text-decoration:none; margin-left:5px;">
             <button id="btn-manual" style="background:#666; color:white; border:none; border-radius:4px; padding:8px 12px; cursor:pointer; font-size:13px;">사용법</button>
         </a>
-        <div style="display:flex; gap:4px; margin-left:5px;">
-            <button onclick="selectLanguage('ko')" style="background:none; border:none; cursor:pointer; font-size:20px; padding:0;" title="한국어">🇰🇷</button>
-            <button onclick="selectLanguage('en')" style="background:none; border:none; cursor:pointer; font-size:20px; padding:0;" title="English">🇺🇸</button>
+        <div style="display:flex; gap:5px; margin-left:8px; align-items:center;">
+            <img src="https://flagcdn.com/w40/kr.png" onclick="selectLanguage('ko')" style="width:24px; height:auto; cursor:pointer; border-radius:2px; box-shadow:0 1px 3px rgba(0,0,0,0.2);" title="한국어">
+            <img src="https://flagcdn.com/w40/us.png" onclick="selectLanguage('en')" style="width:24px; height:auto; cursor:pointer; border-radius:2px; box-shadow:0 1px 3px rgba(0,0,0,0.2);" title="English">
         </div>
         <input id="pac-input" type="text" placeholder="장소 검색 (예: N서울타워)">
         <button id="btn-draw" class="primary" onclick="calculateAndDraw()" style="width:100%; margin-top:8px;">🌑 월출/월몰 라인 그리기</button>
