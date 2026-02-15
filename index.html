@@ -44,6 +44,7 @@
         button.primary { background: #4285F4; color: white; border: none; cursor: pointer; font-weight: bold; }
         button.primary:hover { background: #3367d6; }
 
+        /* 하단 정보창 스타일 개선 */
         #info {
             position: absolute;
             bottom: 20px;
@@ -51,17 +52,45 @@
             transform: translateX(-50%);
             z-index: 10;
             background: rgba(255, 255, 255, 0.95);
-            padding: 15px;
-            border-radius: 12px;
-            font-size: 14px;
+            padding: 20px;
+            border-radius: 16px;
+            font-size: 16px;
             color: #333;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            text-align: left;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+            text-align: center;
             width: 90%;
             max-width: 500px;
             max-height: 40vh;
             overflow-y: auto;
             box-sizing: border-box;
+            border: 1px solid rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        /* 강조 애니메이션 (Pulse) */
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(66, 133, 244, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); }
+        }
+
+        .attention-pulse {
+            animation: pulse-border 2s infinite;
+            border: 2px solid #4285F4 !important;
+        }
+
+        .step-number {
+            display: inline-block;
+            background: #4285F4;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            font-weight: bold;
+            margin-right: 8px;
+            font-size: 14px;
         }
 
         .btn-reset {
@@ -154,7 +183,7 @@
 
     <div id="map"></div>
     
-    <div id="info">
+    <div id="info" class="attention-pulse">
         <button id="btn-reset" onclick="resetTarget()" class="btn-reset">🔄 초기화</button>
         <div id="info-content"></div>
     </div>
@@ -169,7 +198,7 @@
                 searchPlaceholder: "장소 검색 (예: N서울타워)",
                 drawBtn: "🌑 월출/월몰 라인 그리기",
                 reset: "🔄 초기화",
-                infoInit: "📍 지도에서 촬영하고 싶은 <strong>대상(Target)</strong>을 클릭하세요.",
+                infoInit: "<div style='font-size:1.2em; font-weight:bold; margin-bottom:5px; color:#4285F4;'><span class='step-number'>1</span>시작하기</div>지도에서 촬영하고 싶은<br><strong style='font-size:1.3em; color:#d93025; background:#ffe6e6; padding:0 4px;'>대상(Target)</strong>을 클릭하세요! 🎯",
                 alertTargetFirst: "지도에서 촬영 대상을 먼저 클릭해주세요!",
                 targetSet: "🎯 타겟 설정 완료! (해발: {elev}m)<br>물체 높이 입력 후 <strong>[라인 그리기]</strong> 버튼을 누르세요.",
                 calculating: "⏳ 타임존 및 월출/월몰 계산 중...",
@@ -193,7 +222,7 @@
                 searchPlaceholder: "Search place (e.g., Statue of Liberty)",
                 drawBtn: "🌑 Draw Moon Lines",
                 reset: "🔄 Reset",
-                infoInit: "📍 Click a <strong>Target</strong> on the map to start.",
+                infoInit: "<div style='font-size:1.2em; font-weight:bold; margin-bottom:5px; color:#4285F4;'><span class='step-number'>1</span>Start</div>Click your <strong style='font-size:1.3em; color:#d93025; background:#ffe6e6; padding:0 4px;'>Target</strong> on the map! 🎯",
                 alertTargetFirst: "Please select a Target on the map first!",
                 targetSet: "🎯 Target Set! (Elev: {elev}m)<br>Enter object height and click <strong>[Draw Lines]</strong>.",
                 calculating: "⏳ Calculating timezone & moon times...",
@@ -235,6 +264,9 @@
             // If info is in initial state, update it
             if (!targetPosition) {
                 document.getElementById('info-content').innerHTML = t.infoInit;
+                document.getElementById('info').classList.add('attention-pulse'); // Add pulse
+            } else {
+                 document.getElementById('info').classList.remove('attention-pulse'); // Remove pulse if target set
             }
         }
 
@@ -376,6 +408,7 @@
             
             document.getElementById('targetObjectHeight').value = "0";
             document.getElementById('info-content').innerHTML = t('infoInit');
+            document.getElementById('info').classList.add('attention-pulse'); // Pulse again on reset
         }
 
         function setTarget(latLng) {
@@ -394,6 +427,7 @@
             }
             isSelectingShooter = false;
             getElevation(latLng, 'target');
+            document.getElementById('info').classList.remove('attention-pulse'); // Stop pulse
         }
 
         function setShooter(latLng) {
@@ -679,7 +713,8 @@
                 
                 const durationMin = Math.round((bestShot.end - bestShot.start) / 60000);
                 
-                const aziDMS = toDMS(bestShot.azimuth);
+                const aziStartDMS = toDMS(bestShot.azimuth);
+                const aziEndDMS = toDMS(bestShot.azimuthEnd);
                 const altBaseDMS = toDMS(bestShot.angleBase);
                 const altTopDMS = toDMS(bestShot.angleTop);
                 
@@ -698,7 +733,7 @@
                         
                         <div style="margin-top:5px; font-size:0.9em; color:#0056b3;">
                             📐 ${t('alt')}: ${altBaseDMS} ~ ${altTopDMS}<br>
-                            🧭 ${t('azi')}: ${aziDMS}
+                            🧭 ${t('azi')}: ${aziStartDMS} ~ ${aziEndDMS}
                         </div>
                         <span style="font-size:0.8em; color:#888;">* ${t('correction')}: -${correction.toFixed(1)}m</span>
                     </div>
