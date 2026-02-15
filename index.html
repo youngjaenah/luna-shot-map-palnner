@@ -238,11 +238,6 @@
 
         let currentLang = 'ko';
 
-        function toggleLanguage() {
-            const newLang = currentLang === 'ko' ? 'en' : 'ko';
-            selectLanguage(newLang);
-        }
-
         function selectLanguage(lang) {
             currentLang = lang;
             localStorage.setItem('lunashot_lang', lang);
@@ -259,7 +254,6 @@
             document.getElementById('pac-input').placeholder = t.searchPlaceholder;
             document.getElementById('btn-draw').innerText = t.drawBtn;
             document.getElementById('btn-reset').innerText = t.reset;
-            document.getElementById('btn-lang').innerText = currentLang === 'ko' ? '🇰🇷' : '🇺🇸';
             
             // If info is in initial state, update it
             if (!targetPosition) {
