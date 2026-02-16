@@ -45,7 +45,7 @@
             vertical-align: middle;
         }
 
-        /* 1행: 아이콘 버튼 그룹 + 날짜 */
+        /* 1행: 모드 - 달력 - 언어 - 사용법 */
         .row-top { 
             display: flex; 
             width: 100%; 
@@ -53,14 +53,10 @@
             justify-content: space-between; 
         }
 
-        .icon-group {
-            display: flex;
-            gap: 6px;
-        }
-
-        /* 아이콘 버튼 (모드, 언어, 매뉴얼) */
+        /* 아이콘 버튼 (모드, 언어) */
         .icon-btn {
-            width: 40px; 
+            min-width: 40px; 
+            width: 40px;
             height: 40px;
             padding: 0;
             display: flex;
@@ -75,6 +71,15 @@
         #dateInput { 
             flex-grow: 1; 
             font-family: inherit;
+        }
+        
+        /* 사용법 버튼 */
+        #btn-manual {
+            width: auto;
+            padding: 0 10px;
+            font-size: 13px;
+            font-weight: bold;
+            background: #f0f0f5;
         }
 
         /* 2행: 높이 + 맵타입 */
@@ -192,16 +197,14 @@
 <body class="mode-moon"> 
 
     <div class="controls">
-        <!-- 1행: 아이콘 버튼 3개 + 날짜 -->
+        <!-- 1행: 모드 - 달력 - 언어 - 사용법 -->
         <div class="row-top">
-            <div class="icon-group">
-                <button id="btn-mode" class="icon-btn" onclick="toggleMode()" title="Mode">🌕</button>
-                <button id="btn-lang" class="icon-btn" onclick="toggleLanguage()" title="Language">🇰🇷</button>
-                <a href="manual.html" target="_blank" style="text-decoration:none;">
-                    <button id="btn-manual" class="icon-btn" title="Manual">?</button>
-                </a>
-            </div>
+            <button id="btn-mode" class="icon-btn" onclick="toggleMode()" title="Mode">🌕</button>
             <input type="date" id="dateInput">
+            <button id="btn-lang" class="icon-btn" onclick="toggleLanguage()" title="Language">🇰🇷</button>
+            <a href="manual.html" target="_blank" style="text-decoration:none;">
+                <button id="btn-manual" title="Manual">사용법</button>
+            </a>
         </div>
 
         <!-- 2행: 높이 + 맵타입 -->
@@ -254,7 +257,7 @@
                 sunrise: "🔴 일출(Sunrise)", sunset: "🟡 일몰(Sunset)",
                 noMoonrise: "🔵 월출 없음", noMoonset: "🟠 월몰 없음",
                 noSunrise: "🔴 일출 없음", noSunset: "🟡 일몰 없음",
-                shotPrompt: "📸 <strong>이제 지도에서 촬영 장소(Shooter)를 클릭하세요.</strong><br><span style='font-size:0.9em; color:#666;'>(자동으로 {body}가 타겟 위로 올라오는 시각을 계산하여 여기에 표시합니다)</span>",
+                shotPrompt: "📸 <strong>이제 지도에서 촬영 장소(Shooter)를 클릭하세요.</strong><br><span style='font-size:0.9em; color:#666;':>(자동으로 {body}이 타겟 위로 올라오는 시각을 계산하여 여기에 표시합니다)</span>",
                 calcShot: "⏳ 계산 중... (타임존 확인 포함)",
                 dist: "거리",
                 window: "Window",
@@ -263,8 +266,8 @@
                 azi: "방위각",
                 correction: "곡률 보정",
                 legend: "👉 <strong>붉은 실선</strong>: 시작 / <strong>점선</strong>: 끝",
-                noShot: "⚠️ 해당 위치에서는 {body}가 타겟 각도 범위에 들어오지 않거나, 관통 시간을 계산할 수 없습니다.",
-                bodyMoon: "달", bodySun: "해"
+                noShot: "⚠️ 해당 위치에서는 {body}이 타겟 각도 범위에 들어오지 않거나, 관통 시간을 계산할 수 없습니다.",
+                bodyMoon: "달", bodySun: "태양"
             },
             en: {
                 heightPlaceholder: "Height (Unit: m)",
