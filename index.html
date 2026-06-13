@@ -267,7 +267,8 @@
                 correction: "곡률 보정",
                 legend: "👉 <strong>붉은 실선</strong>: 시작 / <strong>점선</strong>: 끝",
                 noShot: "⚠️ 해당 위치에서는 {body}이 타겟 각도 범위에 들어오지 않거나, 관통 시간을 계산할 수 없습니다.",
-                bodyMoon: "달", bodySun: "태양"
+                bodyMoon: "달", bodySun: "태양",
+                manual: "사용법"
             },
             en: {
                 heightPlaceholder: "Height (Unit: m)",
@@ -294,7 +295,8 @@
                 correction: "Curvature",
                 legend: "👉 <strong>Solid Red</strong>: Start / <strong>Dashed</strong>: End",
                 noShot: "⚠️ The {body} does not align with the target from this location.",
-                bodyMoon: "moon", bodySun: "sun"
+                bodyMoon: "moon", bodySun: "sun",
+                manual: "Manual"
             }
         };
 
@@ -341,6 +343,7 @@
             document.getElementById('btn-reset').innerText = t.reset;
             document.getElementById('btn-draw').innerText = currentMode === 'moon' ? t.drawBtnMoon : t.drawBtnSun;
             document.getElementById('btn-lang').innerText = currentLang === 'ko' ? '🇰🇷' : '🇺🇸';
+            document.getElementById('btn-manual').innerText = t.manual;
             
             if (!targetPosition) {
                 const color = currentMode === 'moon' ? '#4285F4' : '#FF4500';
